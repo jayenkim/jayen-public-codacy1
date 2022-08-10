@@ -1,0 +1,161 @@
+---
+kind: pipeline
+type: docker
+name: source-code-analysis-in-drone
+      
+platform:
+  os: linux
+  arch: amd64
+
+steps:
+  - name: source-code-analysis-push
+    pull: if-not-exists
+    image: sonarsource/sonar-scanner-cli
+    environment:
+        SAST_SERVER_DRONE_WEB: 
+          from_secret: sast_server
+        SAST_TOKEN_DRONE_WEB:
+          from_secret: sast_token
+    volumes:
+      - name: cache
+        path: ~/.sonar
+    commands:
+      - echo BRANCH
+      - echo DRONE_COMMIT_REF ... ${DRONE_COMMIT_REF}
+      - echo DRONE_PULL_REQUEST ... ${DRONE_PULL_REQUEST}
+      - echo DRONE_COMMIT_BRANCH ... ${DRONE_COMMIT_BRANCH} 
+      - echo DRONE_SOURCE_BRANCH ... ${DRONE_SOURCE_BRANCH}
+      - echo DRONE_REPO ... ${DRONE_REPO}
+      - echo DRONE_REPO_NAMESPACE/DRONE_REPO_NAME ... ${DRONE_REPO_NAMESPACE}/${DRONE_REPO_NAME}
+      - echo DRONE_TARGET_BRANCH ... ${DRONE_TARGET_BRANCH}
+      - echo -----------------------------start---------------------
+      - "sonar-scanner \
+       -Dsonar.projectVersion=${DRONE_BUILD_NUMBER} \
+       -Dsonar.projectKey=BRANCH-${DRONE_REPO_NAMESPACE}_${DRONE_REPO_NAME}_${DRONE_COMMIT_AUTHOR_NAME} \ 
+       -Dsonar.branch.name=${DRONE_COMMIT_BRANCH} \
+       -Dsonar.sources=. \
+       -Dsonar.host.url=https://0ab0-211-192-161-87.jp.ngrok.io \
+       -Dsonar.login=7a405b77d86754238b67cc70bd1jayef3b7ef6f9faa \ 
+       -Dsonar.java.binaries=. \ 
+       -Dsonar.java.libraries=. \
+       -Dsonar.exclusions=*LICENSE* \  
+       -Dsonar.qualitygate.timeout=300 \
+       -Dsonar.qualitygate.wait=true \ 
+       -Dsonar.verbose=true \
+       -Dsonar.ws.timeout=60" 
+#       -Dsonar.sources=pom.xml, src/main \
+    when:
+      branch: 
+        - main
+      event:
+        include:
+          - push
+
+
+  - name: source-code-analysis-pr-init
+    pull: if-not-exists
+    image: sonarsource/sonar-scanner-cli
+    volumes: 
+      - name: cache
+        path: ~/.sonar
+    commands:
+      - echo INIT
+      - echo DRONE_COMMIT_REF ... ${DRONE_COMMIT_REF}
+      - echo DRONE_PULL_REQUEST ... ${DRONE_PULL_REQUEST} 
+      - echo DRONE_COMMIT_BRANCH ... ${DRONE_COMMIT_BRANCH} 
+      - echo DRONE_SOURCE_BRANCH ... ${DRONE_SOURCE_BRANCH}
+      - echo DRONE_REPO ... ${DRONE_REPO}
+      - echo DRONE_REPO_NAMESPACE/DRONE_REPO_NAME ... ${DRONE_REPO_NAMESPACE}/${DRONE_REPO_NAME}
+      - echo DRONE_TARGET_BRANCH ... ${DRONE_TARGET_BRANCH}
+      - echo -----------------------------start---------------------
+      - "sonar-scanner \
+        -Dsonar.branch.name=main \
+       -Dsonar.projectVersion=${DRONE_PULL_REQUEST} \
+       -Dsonar.projectKey=PR-${DRONE_REPO_NAMESPACE}_${DRONE_REPO_NAME}_${DRONE_COMMIT_AUTHOR} \ 
+       -Dsonar.sources=. \
+       -Dsonar.host.url=https://0ab0-211-192-161-87.jp.ngrok.io \
+       -Dsonar.login=7a405b77d86754238b67cc70bd1ef3b7ef6f9faa \ 
+       -Dsonar.java.binaries=. \ 
+       -Dsonar.java.libraries=. \
+       -Dsonar.exclusions=**/* \  
+       -Dsonar.qualitygate.wait=false \ 
+       -Dsonar.qualitygate.timeout=150 \   
+       -Dsonar.issuesReport.console.enable=true \     
+       --debug"   
+    when:
+      branch: 
+        - main
+      event: 
+        include:
+          - pull_request
+      ref:
+        - refs/heads/main
+        - refs/pull/**
+
+  - name: source-code-analysis-pr
+    pull: if-not-exists
+    image: sonarsource/sonar-scanner-cli
+    environment:
+        SAST_SERVER_DRONE_WEB: 
+          from_secret: sast_server
+        SAST_TOKEN_DRONE_WEB:
+          from_secret: sast_token
+    volumes: 
+      - name: cache
+        path: ~/.sonar
+#    secrets: [ sonarqube_project_key, sonarqube_project_token, sonarqube_server ]
+#     sast_server  -Dsonar.host.url=https://0ab0-211-192-161-87.jp.ngrok.io \
+#     sast_token  -Dsonar.login=51e1c470c568383ee546b0625cd8a43609d6101d \  
+    commands:
+#https://community.sonarsource.com/t/solved-sonarqube-pr-analysis-is-working-but-github-pr-check-is-not-happening/12198
+#https://www.popit.kr/%EB%82%B4%EC%BD%94%EB%93%9C%EB%A5%BC-%EC%9E%90%EB%8F%99%EC%9C%BC%EB%A1%9C-%EB%A6%AC%EB%B7%B0%ED%95%B4%EC%A4%80%EB%8B%A4%EB%A9%B4-by-sonarqube/
+# sonar.pullrequest.branch=feature/my-new-feature
+# jayenkim/jayen-private-sonarqube1
+
+      - echo PR
+      - echo DRONE_COMMIT_REF ... ${DRONE_COMMIT_REF}
+      - echo DRONE_PULL_REQUEST ... ${DRONE_PULL_REQUEST} 
+      - echo DRONE_COMMIT_BRANCH ... ${DRONE_COMMIT_BRANCH} 
+      - echo DRONE_SOURCE_BRANCH ... ${DRONE_SOURCE_BRANCH}
+      - echo DRONE_REPO ... ${DRONE_REPO}
+      - echo DRONE_REPO_NAMESPACE/DRONE_REPO_NAME ... ${DRONE_REPO_NAMESPACE}/${DRONE_REPO_NAME}
+      - echo DRONE_TARGET_BRANCH ... ${DRONE_TARGET_BRANCH}
+      - echo -----------------------------start---------------------
+      - "sonar-scanner \
+       -Dsonar.branch.name=main \
+       -Dsonar.projectVersion=${DRONE_PULL_REQUEST} \
+       -Dsonar.projectKey=PR-${DRONE_REPO_NAMESPACE}_${DRONE_REPO_NAME}_${DRONE_COMMIT_AUTHOR} \ 
+       -Dsonar.sources=. \
+       -Dsonar.host.url=https://0ab0-211-192-161-87.jp.ngrok.io \
+       -Dsonar.login=7a405b77d86754238b67cc70bd1ef3b7ef6f9faa \ 
+       -Dsonar.github.disableInlineComments=false \
+       -Dsonar.java.binaries=. \ 
+       -Dsonar.java.libraries=. \
+       -Dsonar.exclusions=*LICENSE* \  
+       -Dsonar.pullrequest.provider=github \ 
+       -Dsonar.pullrequest.github.repository=${DRONE_REPO} \ 
+       -Dsonar.pullrequest.github.endpoint=https://api.github.com \
+       -Dsonar.pullrequest.branch=${DRONE_REPO} \ 
+       -Dsonar.pullrequest.key=${DRONE_PULL_REQUEST} \
+       -Dsonar.pullrequest.base=${DRONE_TARGET_BRANCH} \
+       -Dsonar.alm.github.app.name=sonarqube-macbook-intel \ 
+       -Dsonar.alm.github.app.id=225515 \
+       -Dsonar.qualitygate.wait=true \ 
+       -Dsonar.qualitygate.timeout=150 \   
+       -Dsonar.issuesReport.console.enable=true \     
+       --debug"   
+#12:38:54.830 DEBUG:     Base dir: /drone/src
+#12:38:54.830 DEBUG:     Working dir: /drone/src/.scannerwork
+#12:38:54.830 DEBUG:     Module global encoding: UTF-8, default locale: en_US
+
+    when:
+      branch: 
+        - main
+      event: 
+        include:
+          - pull_request
+      ref:
+        - refs/heads/main
+        - refs/pull/**
+#    depends_on:
+#      - source-code-analysis-pr-init
